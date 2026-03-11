@@ -23,10 +23,11 @@ _attrs_sdp = {
         default = "",
         doc = "package name of toolchain, default set to toolchain toolchain name + `_pkg`.",
     ),
-    "build_file": attr.string(
+    "build_file": attr.label(
+        allow_single_file = True,
         mandatory = False,
-        default = "",
-        doc = "The path to the BUILD file of selected archive.",
+        default = "@score_rules_imagefs//templates/qnx:sdp.BUILD",
+        doc = "BUILD file for the SDP archive. Defaults to the standard QNX SDP layout shipped with score_rules_imagefs.",
     ),
     "url": attr.string(
         mandatory = False,
@@ -81,9 +82,11 @@ _attrs_tc = {
         values = [
             "ifs",
             "qnx6fs",
+            "fatfs",
+            "diskimage",
         ],
         mandatory = True,
-        doc = "Image FileSystem type: ifs or qnx6fs",
+        doc = "Image FileSystem type: ifs, qnx6fs, fatfs or diskimage",
     ),
     "license_path": attr.string(
         default = "/opt/score_qnx/license/licenses",
@@ -156,9 +159,7 @@ def _get_info(mctx):
         root = mod
 
     toolchains = _get_toolchains(mod.tags.toolchain)
-    for tc in toolchains:
-        if tc["tc_type"] == "qnx6fs":
-            fail("The `qnx6fs` type is not yet supported! Exiting . . .")
+
     packages = _get_packages(root.tags.sdp)
 
     return toolchains, packages

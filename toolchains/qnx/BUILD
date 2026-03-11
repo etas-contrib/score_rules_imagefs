@@ -19,3 +19,7 @@ package(default_visibility = ["//visibility:public"])
 toolchain_type(name = "ifs_toolchain_type")
 
 toolchain_type(name = "qnx6fs_toolchain_type")
+
+toolchain_type(name = "fatfs_toolchain_type")
+
+toolchain_type(name = "diskimage_toolchain_type")
