@@ -12,15 +12,13 @@
 # *******************************************************************************
 
 """
-This rule generates an Image File System (IFS) for QNX.
+This rule generates a FAT File System image for QNX using mkfatfsimg.
 
-In order todo that, the user has to provide a main build file and supporting
-files. The main build file will be used as entrypoint and can then include
-other build files or perform other operations like packaging any file into the
-created IFS.
+The user provides a main build file and supporting files. The main build file
+is used as the entrypoint for mkfatfsimg to create the FAT filesystem image.
 """
 
-QNX_FS_TOOLCHAIN = "@score_rules_imagefs//toolchains/qnx:ifs_toolchain_type"
+QNX_FS_TOOLCHAIN = "@score_rules_imagefs//toolchains/qnx:fatfs_toolchain_type"
 TAR_TOOLCHAIN = "@tar.bzl//tar/toolchain:type"
 
 # todo: Consider to contribute this to "@tar.bzl"
@@ -46,23 +44,22 @@ def _untar(ctx, tarball, output_folder):
         progress_message = "untar %{input}",
     )
 
-def _qnx_ifs_impl(ctx):
-    """ Implementation function of qnx_ifs rule.
+def _fatfs_impl(ctx):
+    """ Implementation function of fatfs rule.
 
-        This function will merge all .build files into main .build file and
-        produce flashable QNX image.
+        This function uses mkfatfsimg to create a FAT filesystem image
+        from the provided build file.
     """
     inputs = []
-    extra_build_files = []
 
     # Choose output filename
     out_name = ctx.attr.out if ctx.attr.out else "{}.{}".format(ctx.attr.name, ctx.attr.extension)
     if "/" in out_name:
-        fail("qnx_ifs.out must be a filename without path components, got: {}".format(out_name))
+        fail("fatfs.out must be a filename without path components, got: {}".format(out_name))
 
-    out_ifs = ctx.actions.declare_file(out_name)
+    out_img = ctx.actions.declare_file(out_name)
 
-    ifs_tool_info = ctx.toolchains[QNX_FS_TOOLCHAIN].ifs_toolchain_info
+    fatfs_tool_info = ctx.toolchains[QNX_FS_TOOLCHAIN].ifs_toolchain_info
 
     main_build_file = ctx.file.build_file
 
@@ -71,26 +68,23 @@ def _qnx_ifs_impl(ctx):
 
     args = ctx.actions.args()
 
-    # Add -r roots BEFORE the build file, resolved relative to the main build file’s dir
-    for r in ctx.attr.search_roots:
-        # Normalize relative to the main build file’s directory
-        root_path = main_build_file.dirname + ("/" + r if not r.startswith("/") else r)
-        args.add("-r")
-        args.add(root_path)
-
     args.add_all([
+        "-n",
         main_build_file.path,
-        out_ifs.path,
+        out_img.path,
     ])
 
     #Add env variables for bazel labels/targets
     env_to_append = {}
-    env_to_append = env_to_append | ifs_tool_info.env
+    env_to_append = env_to_append | fatfs_tool_info.env
 
     for key, item in ctx.attr.ext_repo_mapping.items():
         env_to_append.update({key: ctx.expand_location(item)})
 
-    env_to_append.update({"MAIN_BUILD_FILE_DIR": main_build_file.dirname})
+    for key, item in ctx.attr.ext_repo_dir_mapping.items():
+        expanded = ctx.expand_location(item)
+        dir_path = expanded.rsplit("/", 1)[0] if "/" in expanded else expanded
+        env_to_append.update({key: dir_path})
 
     # Unpack tarballs and add locations as env variables
     for key, tarball in ctx.attr.tars.items():
@@ -100,23 +94,21 @@ def _qnx_ifs_impl(ctx):
         env_to_append.update({key: unpacked_tarball.path})
         inputs.append(unpacked_tarball)
 
-    print(env_to_append)
-
     ctx.actions.run(
-        outputs = [out_ifs],
+        outputs = [out_img],
         inputs = inputs,
         arguments = [args],
-        executable = ifs_tool_info.executable,
+        executable = fatfs_tool_info.executable,
         env = env_to_append,
-        tools = ifs_tool_info.tools,
+        tools = fatfs_tool_info.tools,
     )
 
     return [
-        DefaultInfo(files = depset([out_ifs])),
+        DefaultInfo(files = depset([out_img])),
     ]
 
-qnx_ifs = rule(
-    implementation = _qnx_ifs_impl,
+fatfs = rule(
+    implementation = _fatfs_impl,
     toolchains = [QNX_FS_TOOLCHAIN, TAR_TOOLCHAIN],
     attrs = {
         "build_file": attr.label(
@@ -125,8 +117,8 @@ qnx_ifs = rule(
             mandatory = True,
         ),
         "extension": attr.string(
-            default = "ifs",
-            doc = "Extension for the generated IFS image. Manipulating this extensions is a workaround for IPNext startup code limitation, when interpreting ifs images. This attribute will either disappear or will be replaced by toolchain configuration in order to keep output files consistent.",
+            default = "img",
+            doc = "Extension for the generated FAT filesystem image.",
         ),
         "srcs": attr.label_list(
             allow_files = True,
@@ -138,18 +130,19 @@ qnx_ifs = rule(
             default = {},
             doc = "We are using dict to map env. variables with of external repository",
         ),
+        "ext_repo_dir_mapping": attr.string_dict(
+            allow_empty = True,
+            default = {},
+            doc = "Like ext_repo_mapping, but resolves to the parent directory of the located file. Use a single-file target as an anchor to obtain the directory path.",
+        ),
         "tars": attr.string_keyed_label_dict(
             allow_files = [".tar"],
-            doc = "A map of tar-balls that can be added to the IFS image. The key will be available als variable in the `IFS Build File`, to determine where it should be packaged. e.g. `FOO: '//:my_tar'` can be packaged as /SOME_DIR=${FOO}.",
+            doc = "A map of tar-balls that can be added to the FAT filesystem image. The key will be available as a variable in the build file, to determine where it should be packaged. e.g. `FOO: '//:my_tar'` can be packaged as /SOME_DIR=${FOO}.",
             allow_empty = True,
         ),
         "out": attr.string(
             default = "",
             doc = "Optional explicit output filename (no path). If empty, uses name + '.' + extension.",
-        ),
-        "search_roots": attr.string_list(
-            default = [],
-            doc = "List of paths for mkifs -r, each relative to the main build file's directory (or absolute).",
         ),
     },
 )

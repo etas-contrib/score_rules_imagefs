@@ -72,7 +72,7 @@ def _qnx6fs_impl(ctx):
     env_to_append = {}
     env_to_append = env_to_append | qnx6fs_tool_info.env
 
-    for key, item in ctx.attr.ext_repo_maping.items():
+    for key, item in ctx.attr.ext_repo_mapping.items():
         env_to_append.update({key: ctx.expand_location(item)})
 
     # Unpack tarballs and add locations as env variables
@@ -116,7 +116,7 @@ qnx6fs = rule(
             doc = "List of labels that are used by the `build_file`",
             allow_empty = True,
         ),
-        "ext_repo_maping": attr.string_dict(
+        "ext_repo_mapping": attr.string_dict(
             allow_empty = True,
             default = {},
             doc = "We are using dict to map env. variables with of external repository",

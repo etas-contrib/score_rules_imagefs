@@ -28,6 +28,15 @@ def _impl(ctx):
         "PATH": "/proc/self/cwd/" + ctx.file.host_dir.path + "/usr/bin",
     }
 
+    # Set user-provided license server, if given.
+    qnxlm_license_file = ctx.configuration.default_shell_env.get("QNXLM_LICENSE_FILE", "")
+    lm_license_file = ctx.configuration.default_shell_env.get("LM_LICENSE_FILE", "") or qnxlm_license_file
+
+    if qnxlm_license_file:
+        env["QNXLM_LICENSE_FILE"] = qnxlm_license_file
+    if lm_license_file:
+        env["LM_LICENSE_FILE"] = lm_license_file
+
     return [
         platform_common.ToolchainInfo(
             ifs_toolchain_info = IFSToolchainInfo(
