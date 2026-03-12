@@ -26,8 +26,8 @@ _attrs_sdp = {
     "build_file": attr.label(
         allow_single_file = True,
         mandatory = False,
-        default = "@score_rules_imagefs//templates/qnx:sdp.BUILD",
-        doc = "BUILD file for the SDP archive. Defaults to the standard QNX SDP layout shipped with score_rules_imagefs.",
+        default = None,
+        doc = "BUILD file for the SDP archive.",
     ),
     "url": attr.string(
         mandatory = False,

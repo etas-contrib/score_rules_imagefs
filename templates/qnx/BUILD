@@ -1,4 +1,4 @@
 exports_files(
-    ["sdp.BUILD", "BUILD.template"],
+    ["BUILD.template"],
     visibility = ["//visibility:public"],
 )
